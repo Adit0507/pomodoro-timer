@@ -2,6 +2,7 @@ package pomodoro
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -170,4 +171,54 @@ func newInterval(config *IntervalConfig) (Interval, error) {
 	}
 
 	return i, nil
+}
+
+// attemptes to retrieve the last interval from repository
+// returning it if it’s active or returning an error when there’s an issue accessing
+// the repository
+func GetInterval(config *IntervalConfig) (Interval, error) {
+	i := Interval{}
+	var err error
+
+	i, err = config.repo.Last()
+	if err != nil && err != ErrNoIntervals {
+		return i, err
+	}
+	if err == nil && i.State != StateCancelled && i.State != StateDone {
+		return i, nil
+	}
+
+	return newInterval(config)
+}
+
+// method to start and pause interval timer
+func (i Interval) Start(ctx context.Context, config *IntervalConfig, start, periodic, end Callback) error {
+	switch i.State {
+	case StateRunning:
+		return nil
+	case StateNotStarted:
+		i.StartTime = time.Now()
+		fallthrough
+	case StatePaused:
+		i.State = StateRunning
+		if err := config.repo.Update(i); err != nil {
+			return err
+		}
+		return tick(ctx, i.ID, config, start, periodic, end)
+
+	case StateCancelled, StateDone:
+		return fmt.Errorf("%w: Cannot start", ErrIntervalCompleted)
+
+	default:
+		return fmt.Errorf("%w: %d", ErrInvalidState, i.State)
+	}
+}
+
+func (i Interval) Pause(config *IntervalConfig) error {
+	if i.State != StateRunning {
+		return ErrIntervalNotRunning
+	}
+
+	i.State = StatePaused
+	return config.repo.Update(i)
 }
