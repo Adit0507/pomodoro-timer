@@ -20,9 +20,7 @@ type App struct {
 	size       image.Point
 }
 
-// instantiates the required widgets, buttons, and grid
 func New(config *pomodoro.IntervalConfig) (*App, error) {
-	// will be used to close all widgets when app closes
 	ctx, cancel := context.WithCancel(context.Background())
 
 	quitter := func(k *terminalapi.Keyboard) {
@@ -82,11 +80,10 @@ func (a *App) resize() error {
 }
 
 func (a *App) Run() error {
-	// cleanup resources when the app. finishes
 	defer a.term.Close()
 	defer a.controller.Close()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(2*time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -95,6 +92,7 @@ func (a *App) Run() error {
 			if err := a.controller.Redraw(); err != nil {
 				return err
 			}
+
 		case err := <-a.errorCh:
 			if err != nil {
 				return err
